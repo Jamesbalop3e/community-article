@@ -49,14 +49,37 @@
       this.renderLeaderboard();
       // then fetch remote leaderboard if configured (merge/display remote)
       if (this.apiUrl) {
-        this.fetchRemoteLeaderboard().then(remote => {
-          if (Array.isArray(remote) && remote.length) {
-            try {
-              // override displayed leaderboard with remote entries
-              this.saveLeaderboard(remote.slice(0,5));
+        // Fetch remote list, merge with local, and attempt to sync any local-only entries upstream.
+        this.fetchRemoteLeaderboard().then(async (remote) => {
+          const remoteList = Array.isArray(remote) ? remote : [];
+          try {
+            const localList = this.loadLeaderboard();
+            // Find local entries missing on remote (compare by ts)
+            const missingLocal = localList.filter(l => !remoteList.some(r => Number(r.ts) === Number(l.ts)));
+            if (missingLocal.length) {
+              // Post missing entries to remote
+              try {
+                await Promise.all(missingLocal.map(e => this.postRemoteEntry({ name: e.name, timeMs: Number(e.timeMs), ts: Number(e.ts) }).catch(err => { console.warn('BuildQuest: post missing local entry failed', err); }))
+              } catch (err) {
+                console.warn('BuildQuest: error posting missing local entries', err);
+              }
+              // Re-fetch remote after posting
+              try {
+                const updated = await this.fetchRemoteLeaderboard();
+                if (Array.isArray(updated) && updated.length) {
+                  this.saveLeaderboard(updated.slice(0,5));
+                  this.renderLeaderboard();
+                  return;
+                }
+              } catch (err) { console.warn('BuildQuest: fetch after post failed', err); }
+            }
+
+            // If remote has entries, prefer remote display
+            if (remoteList.length) {
+              this.saveLeaderboard(remoteList.slice(0,5));
               this.renderLeaderboard();
-            } catch (e) { console.warn('BuildQuest: failed to apply remote leaderboard', e); }
-          }
+            }
+          } catch (e) { console.warn('BuildQuest: failed to merge/apply remote leaderboard', e); }
         }).catch((err) => { console.warn('BuildQuest: fetchRemoteLeaderboard error', err); });
       }
 
@@ -171,10 +194,20 @@
       this.renderLeaderboard();
         // POST to remote API if configured
         if (this.apiUrl) {
-          this.postRemoteEntry({ name, timeMs: Number(elapsedMs), ts: Date.now() }).catch((err) => {
-            console.warn('BuildQuest: failed to post remote entry', err);
-          });
-        }
+            this.postRemoteEntry({ name, timeMs: Number(elapsedMs), ts: Date.now() }).then(() => {
+              // on success, refresh remote leaderboard and render
+              this.fetchRemoteLeaderboard().then((remoteAfter) => {
+                if (Array.isArray(remoteAfter) && remoteAfter.length) {
+                  try {
+                    this.saveLeaderboard(remoteAfter.slice(0,5));
+                    this.renderLeaderboard();
+                  } catch (e) { console.warn('BuildQuest: failed to apply remote after post', e); }
+                }
+              }).catch((err) => { console.warn('BuildQuest: fetchRemoteLeaderboard after post error', err); });
+            }).catch((err) => {
+              console.warn('BuildQuest: failed to post remote entry', err);
+            });
+          }
       } catch (e) {
         console.warn('BuildQuest: recordCompletion failed', e);
       }
@@ -218,9 +251,9 @@
   BuildQuest.prototype.postRemoteEntry = function (entry) {
     if (!this.apiUrl) return Promise.reject(new Error('No apiUrl'));
     const body = Object.assign({}, entry);
-    // include token if provided
-    const headers = { 'Content-Type': 'application/json' };
-    if (this.apiToken) headers['X-Leaderboard-Token'] = this.apiToken;
+      // include token in body if provided (Apps Script checks body.token in docs)
+      if (this.apiToken) body.token = this.apiToken;
+      const headers = { 'Content-Type': 'application/json' };
     return fetch(this.apiUrl, { method: 'POST', headers, body: JSON.stringify(body), cache: 'no-store' })
       .then((r) => {
         if (!r.ok) throw new Error('Network response not ok');
