@@ -4,8 +4,6 @@ title: "Build Quest"
 permalink: /build-quest/
 ---
 
-<link rel="stylesheet" href="{{ '/assets/css/build-quest.css' | relative_url }}">
-
 <p>This interactive Build Quest guides you through small hands-on steps to run the site locally and complete quick tasks. Progress is saved in your browser.</p>
 
 <div id="build-quest" class="build-quest">
