@@ -24,6 +24,10 @@
       this.name = null;
       try { this.name = localStorage.getItem('mmaug.buildQuest.name') || null; } catch (e) { this.name = null; }
 
+      // Read leaderboard API config from data attributes (liquid-injected)
+      this.apiUrl = (root && root.dataset && root.dataset.leaderboardApi) ? root.dataset.leaderboardApi : null;
+      this.apiToken = (root && root.dataset && root.dataset.leaderboardToken) ? root.dataset.leaderboardToken : null;
+
       // Prompt for name on first load if not present
       if (!this.name) {
         try {
@@ -41,7 +45,21 @@
       this.load();
       this.bind();
       this.render();
+      // render local leaderboard first
       this.renderLeaderboard();
+      // then fetch remote leaderboard if configured (merge/display remote)
+      if (this.apiUrl) {
+        this.fetchRemoteLeaderboard().then(remote => {
+          if (Array.isArray(remote) && remote.length) {
+            try {
+              // override displayed leaderboard with remote entries
+              this.saveLeaderboard(remote.slice(0,5));
+              this.renderLeaderboard();
+            } catch (e) { console.warn('BuildQuest: failed to apply remote leaderboard', e); }
+          }
+        }).catch((err) => { console.warn('BuildQuest: fetchRemoteLeaderboard error', err); });
+      }
+
     }
 
   BuildQuest.prototype.bind = function () {
@@ -151,10 +169,17 @@
       const name = this.name || 'Anonymous';
       this.addLeaderboardEntry(name, elapsedMs);
       this.renderLeaderboard();
-    } catch (e) {
-      console.warn('BuildQuest: recordCompletion failed', e);
-    }
-  };
+        // POST to remote API if configured
+        if (this.apiUrl) {
+          this.postRemoteEntry({ name, timeMs: Number(elapsedMs), ts: Date.now() }).catch((err) => {
+            console.warn('BuildQuest: failed to post remote entry', err);
+          });
+        }
+      } catch (e) {
+        console.warn('BuildQuest: recordCompletion failed', e);
+      }
+    };
+
 
   BuildQuest.prototype.loadLeaderboard = function () {
     try {
@@ -175,6 +200,35 @@
       console.warn('BuildQuest: failed to save leaderboard', e);
     }
   };
+
+  // Remote API helpers (Google Sheets Apps Script endpoint)
+  BuildQuest.prototype.fetchRemoteLeaderboard = function () {
+    if (!this.apiUrl) return Promise.resolve([]);
+    // expect the endpoint to return JSON array of {name,timeMs,ts}
+    const url = this.apiUrl;
+    return fetch(url, { method: 'GET', cache: 'no-store' }).then((r) => {
+      if (!r.ok) throw new Error('Network response not ok');
+      return r.json();
+    }).then((json) => {
+      if (!Array.isArray(json)) return [];
+      return json.map((e) => ({ name: String(e.name || 'Anonymous'), timeMs: Number(e.timeMs || 0), ts: Number(e.ts || Date.now()) }));
+    });
+  };
+
+  BuildQuest.prototype.postRemoteEntry = function (entry) {
+    if (!this.apiUrl) return Promise.reject(new Error('No apiUrl'));
+    const body = Object.assign({}, entry);
+    // include token if provided
+    const headers = { 'Content-Type': 'application/json' };
+    if (this.apiToken) headers['X-Leaderboard-Token'] = this.apiToken;
+    return fetch(this.apiUrl, { method: 'POST', headers, body: JSON.stringify(body), cache: 'no-store' })
+      .then((r) => {
+        if (!r.ok) throw new Error('Network response not ok');
+        // try to parse JSON response (optional)
+        return r.json ? r.json().catch(() => ({})) : Promise.resolve({});
+      });
+  };
+
 
   BuildQuest.prototype.addLeaderboardEntry = function (name, timeMs) {
     const list = this.loadLeaderboard();

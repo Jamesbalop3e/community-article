@@ -18,3 +18,6 @@ defaults:
       type: "articles"
     values:
       layout: "article"
+
+leaderboard_api_url: "https://script.google.com/macros/s/AKfycbz0-H12vW9BeWbFP_nsYatmg5hUAp2-NjVJYwawFQTwa-DAtvOUOIXh_bzfU38WYVWHdg/exec"
+leaderboard_api_token: ""

@@ -6,7 +6,7 @@ permalink: /build-quest/
 
 <p>This interactive Build Quest guides you through small hands-on steps to run the site locally and complete quick tasks. Progress is saved in your browser.</p>
 
-<div id="build-quest" class="build-quest">
+<div id="build-quest" class="build-quest" data-leaderboard-api="{{ site.leaderboard_api_url | default: '' }}" data-leaderboard-token="{{ site.leaderboard_api_token | default: '' }}">
   <div class="bq-celebration" role="status" aria-live="polite" aria-hidden="true">
     <div class="bq-ribbon">🎉 Congratulations! You've successfully completed this task! 🎉</div>
   </div>
