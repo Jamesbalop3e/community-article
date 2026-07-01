@@ -87,6 +87,12 @@ hide_tagline: false
       <p>Most AI demos stop at a single agent answering a question.</p>
       <a href="https://www.meetup.com/malta-microsoft-ai-user-group/events/315242238/" target="_blank" rel="noopener">View event</a>
     </article>
+    <article class="event-card" data-event-date="2026-08-29">
+      <p class="event-kicker">Aug 29</p>
+      <h3>Orchestrating Safe &amp; Adaptive Learning with Multi-Agent Systems</h3>
+      <p>Join the Orchestrating Safe &amp; Adaptive Learning with Multi-Agent Systems by Josephat Onkoba on August 29, 2026, at 6 PM CET Malta time.</p>
+      <a href="https://www.meetup.com/malta-microsoft-ai-user-group/events/315483871/" target="_blank" rel="noopener">View event</a>
+    </article>
     <article class="event-card" data-event-date="2026-09-12">
       <p class="event-kicker">Sep 12</p>
       <h3>Implementing Responsible AI and Content Safety in Enterprise AI Agents</h3>
